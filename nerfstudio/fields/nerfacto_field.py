@@ -175,6 +175,19 @@ class TCNNNerfactoField(Field):
             self.field_head_transient_uncertainty = UncertaintyFieldHead(in_dim=self.mlp_transient.n_output_dims)
             self.field_head_transient_rgb = TransientRGBFieldHead(in_dim=self.mlp_transient.n_output_dims)
             self.field_head_transient_density = TransientDensityFieldHead(in_dim=self.mlp_transient.n_output_dims)
+        # language
+        if self.use_clip:
+            self.mlp_semantics = tcnn.Network(
+                n_input_dims=self.geo_feat_dim,
+                n_output_dims=hidden_dim_transient,
+                network_config={
+                    "otype": "FullyFusedMLP",
+                    "activation": "ReLU",
+                    "output_activation": "None",
+                    "n_neurons": 64,
+                    "n_hidden_layers": 1,
+                },
+            )
 
         # semantics
         if self.use_semantics:

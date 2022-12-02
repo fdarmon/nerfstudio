@@ -281,6 +281,20 @@ class UncertaintyRenderer(nn.Module):
         return uncertainty
 
 
+class CLIPRenderer(nn.Module):
+    """Calculate CLILP embeddings along ray."""
+
+    @classmethod
+    def forward(
+        cls,
+        embeds: TensorType["bs":..., "num_samples", "num_classes"],
+        weights: TensorType["bs":..., "num_samples", 1],
+    ) -> TensorType["bs":..., "num_classes"]:
+        """Calculate semantics along the ray."""
+        embed = torch.mean(weights * embeds, dim=-2)
+        return embed / torch.linalg.norm(embed, dim=-1, keepdim=True)
+
+
 class SemanticRenderer(nn.Module):
     """Calculate semantics along the ray."""
 

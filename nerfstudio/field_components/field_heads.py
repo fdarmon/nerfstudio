@@ -37,6 +37,7 @@ class FieldHeadNames(Enum):
     TRANSIENT_RGB = "transient_rgb"
     TRANSIENT_DENSITY = "transient_density"
     SEMANTICS = "semantics"
+    CLIP = "clip"
 
 
 class FieldHead(FieldComponent):
@@ -182,6 +183,11 @@ class SemanticFieldHead(FieldHead):
 
     def __init__(self, num_classes: int, in_dim: Optional[int] = None) -> None:
         super().__init__(in_dim=in_dim, out_dim=num_classes, field_head_name=FieldHeadNames.SEMANTICS, activation=None)
+
+
+class CLIPFieldHead(FieldHead):
+    def __init__(self, out_dim: int, in_dim: Optional[int] = None) -> None:
+        super().__init__(in_dim=in_dim, out_dim=out_dim, field_head_name=FieldHeadNames.CLIP, activation=None)
 
 
 class PredNormalsFieldHead(FieldHead):
