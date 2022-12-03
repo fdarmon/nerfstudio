@@ -308,11 +308,11 @@ class TCNNNerfactoField(Field):
 
         # language
         if self.use_clip:
-            positions = ray_samples.frustums.get_positions()
+            positions = ray_samples.frustums.get_positions().detach()
             positions = self.spatial_distortion(positions)
             positions = (positions + 2.0) / 4.0
             x = self.clip_net(positions.view(-1, 3)).view(*ray_samples.frustums.shape, -1)
-            outputs[FieldHeadNames.CLIP] = x  # this is effectively a no-op
+            outputs[FieldHeadNames.CLIP] = x 
         # semantics
         if self.use_semantics:
             density_embedding_copy = density_embedding.clone().detach()

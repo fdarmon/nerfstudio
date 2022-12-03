@@ -115,7 +115,7 @@ class NerfactoModelConfig(ModelConfig):
     """Whether use single jitter or not for the proposal networks."""
     predict_normals: bool = False
     """Whether to predict normals or not."""
-    use_clip: bool = True
+    use_clip: bool = False
 
 
 class NerfactoModel(Model):
