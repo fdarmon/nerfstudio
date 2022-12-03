@@ -291,6 +291,7 @@ class CLIPRenderer(nn.Module):
         weights: TensorType["bs":..., "num_samples", 1],
     ) -> TensorType["bs":..., "num_classes"]:
         """Calculate semantics along the ray."""
+        embeds = embeds / torch.linalg.norm(embeds, dim=-1,keepdim=True)
         embed = torch.mean(weights * embeds, dim=-2)
         return embed / torch.linalg.norm(embed, dim=-1, keepdim=True)
 

@@ -185,11 +185,6 @@ class SemanticFieldHead(FieldHead):
         super().__init__(in_dim=in_dim, out_dim=num_classes, field_head_name=FieldHeadNames.SEMANTICS, activation=None)
 
 
-class CLIPFieldHead(FieldHead):
-    def __init__(self, out_dim: int, in_dim: Optional[int] = None) -> None:
-        super().__init__(in_dim=in_dim, out_dim=out_dim, field_head_name=FieldHeadNames.CLIP, activation=None)
-
-
 class PredNormalsFieldHead(FieldHead):
     """Predicted normals output.
 

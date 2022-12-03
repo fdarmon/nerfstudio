@@ -105,6 +105,7 @@ class TCNNNerfactoField(Field):
         use_pred_normals: bool = False,
         use_average_appearance_embedding: bool = False,
         spatial_distortion: Optional[SpatialDistortion] = None,
+        use_clip=True,
     ) -> None:
         super().__init__()
 
@@ -119,6 +120,7 @@ class TCNNNerfactoField(Field):
         self.use_transient_embedding = use_transient_embedding
         self.use_semantics = use_semantics
         self.use_pred_normals = use_pred_normals
+        self.use_clip = True
 
         base_res = 16
         features_per_level = 2
@@ -175,17 +177,26 @@ class TCNNNerfactoField(Field):
             self.field_head_transient_uncertainty = UncertaintyFieldHead(in_dim=self.mlp_transient.n_output_dims)
             self.field_head_transient_rgb = TransientRGBFieldHead(in_dim=self.mlp_transient.n_output_dims)
             self.field_head_transient_density = TransientDensityFieldHead(in_dim=self.mlp_transient.n_output_dims)
+
         # language
         if self.use_clip:
-            self.mlp_semantics = tcnn.Network(
-                n_input_dims=self.geo_feat_dim,
-                n_output_dims=hidden_dim_transient,
+            self.clip_net = tcnn.NetworkWithInputEncoding(
+                n_input_dims=3,
+                n_output_dims=512,
+                encoding_config={
+                    "otype": "HashGrid",
+                    "n_levels": num_levels,
+                    "n_features_per_level": features_per_level,
+                    "log2_hashmap_size": log2_hashmap_size,
+                    "base_resolution": base_res,
+                    "per_level_scale": growth_factor,
+                },
                 network_config={
-                    "otype": "FullyFusedMLP",
+                    "otype": "CutlassMLP",
                     "activation": "ReLU",
                     "output_activation": "None",
-                    "n_neurons": 64,
-                    "n_hidden_layers": 1,
+                    "n_neurons": 256,
+                    "n_hidden_layers": 3,
                 },
             )
 
@@ -295,6 +306,13 @@ class TCNNNerfactoField(Field):
             outputs[FieldHeadNames.TRANSIENT_RGB] = self.field_head_transient_rgb(x)
             outputs[FieldHeadNames.TRANSIENT_DENSITY] = self.field_head_transient_density(x)
 
+        # language
+        if self.use_clip:
+            positions = ray_samples.frustums.get_positions()
+            positions = self.spatial_distortion(positions)
+            positions = (positions + 2.0) / 4.0
+            x = self.clip_net(positions.view(-1, 3)).view(*ray_samples.frustums.shape, -1)
+            outputs[FieldHeadNames.CLIP] = x  # this is effectively a no-op
         # semantics
         if self.use_semantics:
             density_embedding_copy = density_embedding.clone().detach()

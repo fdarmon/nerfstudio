@@ -49,6 +49,7 @@ from nerfstudio.model_components.losses import (
 from nerfstudio.model_components.ray_samplers import ProposalNetworkSampler
 from nerfstudio.model_components.renderers import (
     AccumulationRenderer,
+    CLIPRenderer,
     DepthRenderer,
     NormalsRenderer,
     RGBRenderer,
@@ -114,6 +115,7 @@ class NerfactoModelConfig(ModelConfig):
     """Whether use single jitter or not for the proposal networks."""
     predict_normals: bool = False
     """Whether to predict normals or not."""
+    use_clip: bool = True
 
 
 class NerfactoModel(Model):
@@ -141,6 +143,7 @@ class NerfactoModel(Model):
             num_images=self.num_train_data,
             use_pred_normals=self.config.predict_normals,
             use_average_appearance_embedding=self.config.use_average_appearance_embedding,
+            use_clip=self.config.use_clip,
         )
 
         self.density_fns = []
@@ -186,6 +189,8 @@ class NerfactoModel(Model):
         self.renderer_accumulation = AccumulationRenderer()
         self.renderer_depth = DepthRenderer()
         self.renderer_normals = NormalsRenderer()
+        if self.config.use_clip:
+            self.renderer_clip = CLIPRenderer()
 
         # losses
         self.rgb_loss = MSELoss()
@@ -272,6 +277,8 @@ class NerfactoModel(Model):
         for i in range(self.config.num_proposal_iterations):
             outputs[f"prop_depth_{i}"] = self.renderer_depth(weights=weights_list[i], ray_samples=ray_samples_list[i])
 
+        if self.config.use_clip:
+            outputs["clip"] = self.renderer_clip(embeds=field_outputs[FieldHeadNames.CLIP], weights=weights)
         return outputs
 
     def get_metrics_dict(self, outputs, batch):
@@ -302,6 +309,9 @@ class NerfactoModel(Model):
                 loss_dict["pred_normal_loss"] = self.config.pred_normal_loss_mult * torch.mean(
                     outputs["rendered_pred_normal_loss"]
                 )
+            if self.config.use_clip:
+                mul = torch.sum(outputs["clip"] * batch["clip"], dim=-1)  # Bx1
+                loss_dict["clip_loss"] = -torch.mean(mul)  # maximize dot product, so minimize the negative dot product
         return loss_dict
 
     def get_image_metrics_and_images(

@@ -24,6 +24,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import torch
 import tyro
+from clip_nerf.clip_embed_dataloader import CLIPInterpolatorBatch
 from rich.progress import Console
 from torch import nn
 from torch.nn import Parameter
@@ -368,6 +369,8 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
             self.train_dataset.cameras.to(self.device),
             self.train_camera_optimizer,
         )
+        images = [self.train_dataset[i]["image"].permute(2, 0, 1)[None, ...] for i in range(len(self.train_dataset))]
+        self.clip_interpolator = CLIPInterpolatorBatch(image_lst=images, device=self.device)
 
     def setup_eval(self):
         """Sets up the data loader for evaluation"""
@@ -408,6 +411,7 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
         batch = self.train_pixel_sampler.sample(image_batch)
         ray_indices = batch["indices"]
         ray_bundle = self.train_ray_generator(ray_indices)
+        batch["clip"] = self.clip_interpolator.interp(ray_indices)
         return ray_bundle, batch
 
     def next_eval(self, step: int) -> Tuple[RayBundle, Dict]:
