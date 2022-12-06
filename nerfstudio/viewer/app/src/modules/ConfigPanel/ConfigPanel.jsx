@@ -30,6 +30,9 @@ export function RenderControls() {
   const render_time = useSelector(
     (state) => state.renderingState.renderTime,
   );
+  const sentence = useSelector(
+    (state) => state.renderingState.sentence,
+  );
 
   const dispatch = useDispatch();
 
@@ -138,6 +141,24 @@ export function RenderControls() {
       websocket.send(message);
     }
   };
+  const set_sentence = (value) => {
+    if (websocket.readyState === WebSocket.OPEN) {
+      const path = 'renderingState/sentence';
+      dispatch({
+        type: 'write',
+        path,
+        data: value,
+      });
+      const cmd = 'write';
+      const data = {
+        type: cmd,
+        path,
+        data: value,
+      };
+      const message = msgpack.encode(data);
+      websocket.send(message);
+    }
+  };
 
   const [, setControls] = useControls(
     () => ({
@@ -150,6 +171,14 @@ export function RenderControls() {
         Slow: () =>
           setControls({ target_train_util: 0.1, max_resolution: 2048 }),
       }),
+      // sentence
+      sentence: {
+        label: "Sentence",
+        value: sentence,
+        onChange: (v) => {
+          set_sentence(v);
+        },
+      },
       // output_options
       output_options: {
         label: 'Output Render',

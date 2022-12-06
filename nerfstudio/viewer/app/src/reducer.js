@@ -35,6 +35,7 @@ const initialState = {
     vis_train_ratio: 'Paused',
     log_errors: '',
     renderTime: 0.0,
+    sentence: '',
 
     // export options
     clipping_enabled: true,

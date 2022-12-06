@@ -87,7 +87,7 @@ method_configs["nerfacto"] = Config(
         },
         "fields": {
             "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-15),
-            "scheduler": None,
+            "scheduler": SchedulerConfig(lr_final=1e-3, max_steps=10000),
         },
     },
     viewer=ViewerConfig(num_rays_per_chunk=1 << 15),

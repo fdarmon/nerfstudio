@@ -180,26 +180,28 @@ class TCNNNerfactoField(Field):
 
         # language
         if self.use_clip:
+            ls = 20
+            res = 1024
+            growth = np.exp((np.log(res) - np.log(16)) / (ls - 1))
             self.clip_net = tcnn.NetworkWithInputEncoding(
-                n_input_dims=3,
-                n_output_dims=512,
-                encoding_config={
-                    "otype": "HashGrid",
-                    "n_levels": num_levels,
-                    "n_features_per_level": features_per_level,
-                    "log2_hashmap_size": log2_hashmap_size,
-                    "base_resolution": base_res,
-                    "per_level_scale": growth_factor,
-                },
-                network_config={
-                    "otype": "CutlassMLP",
-                    "activation": "ReLU",
-                    "output_activation": "None",
-                    "n_neurons": 256,
-                    "n_hidden_layers": 3,
-                },
-            )
-
+            n_input_dims=3,
+            n_output_dims=512,
+            encoding_config={
+                "otype": "HashGrid",
+                "n_levels": ls,
+                "n_features_per_level": 8,
+                "log2_hashmap_size": 21,
+                "base_resolution": 16,
+                "per_level_scale": growth,
+            },
+            network_config={
+                "otype": "CutlassMLP",
+                "activation": "ReLU",
+                "output_activation": "None",
+                "n_neurons": 256,
+                "n_hidden_layers": 1,
+            },
+        )
         # semantics
         if self.use_semantics:
             self.mlp_semantics = tcnn.Network(
@@ -312,7 +314,7 @@ class TCNNNerfactoField(Field):
             positions = self.spatial_distortion(positions)
             positions = (positions + 2.0) / 4.0
             x = self.clip_net(positions.view(-1, 3)).view(*ray_samples.frustums.shape, -1)
-            outputs[FieldHeadNames.CLIP] = x 
+            outputs[FieldHeadNames.CLIP] = x / x.norm(dim=-1,keepdim=True)
         # semantics
         if self.use_semantics:
             density_embedding_copy = density_embedding.clone().detach()

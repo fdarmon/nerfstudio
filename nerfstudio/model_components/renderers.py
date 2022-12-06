@@ -38,6 +38,8 @@ from typing_extensions import Literal
 from nerfstudio.cameras.rays import RaySamples
 from nerfstudio.utils.math import components_from_spherical_harmonics
 
+import clip
+
 
 class RGBRenderer(nn.Module):
     """Standard volumetic rendering.
@@ -291,10 +293,65 @@ class CLIPRenderer(nn.Module):
         weights: TensorType["bs":..., "num_samples", 1],
     ) -> TensorType["bs":..., "num_classes"]:
         """Calculate semantics along the ray."""
-        embeds = embeds / torch.linalg.norm(embeds, dim=-1,keepdim=True)
-        embed = torch.mean(weights * embeds, dim=-2)
-        return embed / torch.linalg.norm(embed, dim=-1, keepdim=True)
+        output = torch.sum(weights * embeds, dim=-2)
+        output = output / torch.linalg.norm(output, dim=-1, keepdim=True)
+        return output
 
+class SentenceRenderer(nn.Module):
+    """Calculate CLILP embeddings along ray."""
+    def __init__(self, phrases):
+        super().__init__()
+        self.phrases = phrases
+        model, _ = clip.load("ViT-B/32")
+        model = model.to('cuda')
+        tok_phrases = torch.cat([clip.tokenize(phrase) for phrase in self.phrases]).to('cuda')
+        with torch.no_grad():
+            self.phrases_embeds = model.encode_text(tok_phrases)
+            self.phrases_embeds /= self.phrases_embeds.norm(dim=-1, keepdim=True)
+        del model
+        torch.cuda.empty_cache()
+
+    def forward(
+        self,
+        embeds: TensorType["bs":..., "num_samples", "num_classes"],
+        weights: TensorType["bs":..., "num_samples", 1],
+    ) -> TensorType["bs":..., "num_classes"]:
+        """Calculate semantics along the ray."""
+        embed = torch.sum(weights * embeds, dim=-2)#Bx512
+        embed = embed / torch.linalg.norm(embed, dim=-1, keepdim=True)
+        #output = colorized based on the similarity with labels
+        p = self.phrases_embeds.to(embed.dtype)
+        output = torch.mm(embed, p.T)#.argmax(dim=-1)
+        label = torch.argmax(output,dim=-1,keepdim=True).float()
+        return label
+
+class SimilarityRenderer(nn.Module):
+    def __init__(self, phrase):
+        super().__init__()
+        self.model, _ = clip.load("ViT-B/32")
+        self.model = self.model.to('cuda')
+        self.set_sentence(phrase)
+
+    def set_sentence(self,phrase):
+        print(f"Setting sentence to '{phrase}'")
+        self.phrases = [phrase]
+        tok_phrases = torch.cat([clip.tokenize(phrase) for phrase in self.phrases]).to('cuda')
+        with torch.no_grad():
+            self.phrases_embeds = self.model.encode_text(tok_phrases)
+            self.phrases_embeds /= self.phrases_embeds.norm(dim=-1, keepdim=True)
+
+    def forward(
+        self,
+        embeds: TensorType["bs":..., "num_samples", "num_classes"],
+        weights: TensorType["bs":..., "num_samples", 1],
+    ) -> TensorType["bs":..., "num_classes"]:
+        """Calculate semantics along the ray."""
+        embed = torch.sum(weights * embeds, dim=-2)#Bx512
+        embed = embed / torch.linalg.norm(embed, dim=-1, keepdim=True)
+        #output = colorized based on the similarity with labels
+        p = self.phrases_embeds.to(embed.dtype)
+        output = torch.mm(embed, p.T)/.5#.argmax(dim=-1)
+        return torch.clamp(output,0,1)
 
 class SemanticRenderer(nn.Module):
     """Calculate semantics along the ray."""

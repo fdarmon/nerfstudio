@@ -50,6 +50,8 @@ from nerfstudio.model_components.ray_samplers import ProposalNetworkSampler
 from nerfstudio.model_components.renderers import (
     AccumulationRenderer,
     CLIPRenderer,
+    SentenceRenderer,
+    SimilarityRenderer,
     DepthRenderer,
     NormalsRenderer,
     RGBRenderer,
@@ -90,7 +92,7 @@ class NerfactoModelConfig(ModelConfig):
     """Use the same proposal network. Otherwise use different ones."""
     proposal_net_args_list: List[Dict] = field(
         default_factory=lambda: [
-            {"hidden_dim": 16, "log2_hashmap_size": 17, "num_levels": 5, "max_res": 64},
+            {"hidden_dim": 16, "log2_hashmap_size": 17, "num_levels": 5, "max_res": 128},
             {"hidden_dim": 16, "log2_hashmap_size": 17, "num_levels": 5, "max_res": 256},
         ]
     )
@@ -115,7 +117,8 @@ class NerfactoModelConfig(ModelConfig):
     """Whether use single jitter or not for the proposal networks."""
     predict_normals: bool = False
     """Whether to predict normals or not."""
-    use_clip: bool = False
+    use_clip: bool = True
+    phrases: Tuple[str]=("spoon", "handle to hold", "a drinking mug","tongs","Area of the image that is not the focus of the image")
 
 
 class NerfactoModel(Model):
@@ -191,6 +194,8 @@ class NerfactoModel(Model):
         self.renderer_normals = NormalsRenderer()
         if self.config.use_clip:
             self.renderer_clip = CLIPRenderer()
+            self.renderer_language = SentenceRenderer(self.config.phrases)
+            self.similarity_renderer = SimilarityRenderer(self.config.phrases[0])
 
         # losses
         self.rgb_loss = MSELoss()
@@ -205,6 +210,9 @@ class NerfactoModel(Model):
         param_groups["proposal_networks"] = list(self.proposal_networks.parameters())
         param_groups["fields"] = list(self.field.parameters())
         return param_groups
+
+    def set_sentence(self,sentence):
+        self.similarity_renderer.set_sentence(sentence)
 
     def get_training_callbacks(
         self, training_callback_attributes: TrainingCallbackAttributes
@@ -278,7 +286,10 @@ class NerfactoModel(Model):
             outputs[f"prop_depth_{i}"] = self.renderer_depth(weights=weights_list[i], ray_samples=ray_samples_list[i])
 
         if self.config.use_clip:
-            outputs["clip"] = self.renderer_clip(embeds=field_outputs[FieldHeadNames.CLIP], weights=weights)
+            outputs["clip"] = self.renderer_clip(embeds=field_outputs[FieldHeadNames.CLIP], weights=weights.detach())
+            with torch.no_grad():
+                outputs["Phrase Segmentation"] = self.renderer_language(embeds=field_outputs[FieldHeadNames.CLIP], weights=weights)
+                outputs["Sentence Similarity"]= self.similarity_renderer(embeds=field_outputs[FieldHeadNames.CLIP], weights=weights)
         return outputs
 
     def get_metrics_dict(self, outputs, batch):
@@ -312,6 +323,7 @@ class NerfactoModel(Model):
             if self.config.use_clip:
                 mul = torch.sum(outputs["clip"] * batch["clip"], dim=-1)  # Bx1
                 loss_dict["clip_loss"] = -torch.mean(mul)  # maximize dot product, so minimize the negative dot product
+                # loss_dict['clip_loss'] = torch.nn.functional.mse_loss(outputs['clip'],batch['clip'])
         return loss_dict
 
     def get_image_metrics_and_images(

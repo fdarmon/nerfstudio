@@ -488,6 +488,7 @@ class ViewerState:
         if self.prev_colormap_type == ColormapTypes.TURBO or (
             self.prev_colormap_type == ColormapTypes.DEFAULT and outputs[reformatted_output].dtype == torch.float
         ):
+            #clip hits here
             return colormaps.apply_colormap(outputs[reformatted_output])
 
         # rendering semantic outputs
@@ -759,6 +760,13 @@ class ViewerState:
         times = self.vis["renderingState/render_time"].read()
         if times is not None:
             times = torch.tensor([float(times)])
+        
+        sentence = self.vis['renderingState/sentence'].read()
+        if not hasattr(self,'last_sentence'):
+            self.last_sentence=sentence
+        elif self.last_sentence != sentence:
+            self.last_sentence = sentence
+            graph.set_sentence(sentence)
 
         camera = Cameras(
             fx=intrinsics_matrix[0, 0],
