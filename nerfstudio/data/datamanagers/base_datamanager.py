@@ -410,7 +410,8 @@ class VanillaDataManager(DataManager):  # pylint: disable=abstract-method
         batch = self.train_pixel_sampler.sample(image_batch)
         ray_indices = batch["indices"]
         ray_bundle = self.train_ray_generator(ray_indices)
-        batch["clip"] = self.clip_interpolator(ray_indices)
+        batch["clip"], clip_scale = self.clip_interpolator(ray_indices)
+        ray_bundle.clip_scale = clip_scale
         return ray_bundle, batch
 
     def next_eval(self, step: int) -> Tuple[RayBundle, Dict]:

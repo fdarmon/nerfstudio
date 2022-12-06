@@ -33,6 +33,9 @@ export function RenderControls() {
   const sentence = useSelector(
     (state) => state.renderingState.sentence,
   );
+  const clipScale = useSelector(
+    (state) => state.renderingState.clipScale,
+  );
 
   const dispatch = useDispatch();
 
@@ -141,6 +144,24 @@ export function RenderControls() {
       websocket.send(message);
     }
   };
+  const set_clip_scale = (value) => {
+    if (websocket.readyState === WebSocket.OPEN) {
+      const path = 'renderingState/clipScale';
+      dispatch({
+        type: 'write',
+        path,
+        data: value,
+      });
+      const cmd = 'write';
+      const data = {
+        type: cmd,
+        path,
+        data: value,
+      };
+      const message = msgpack.encode(data);
+      websocket.send(message);
+    }
+  };
   const set_sentence = (value) => {
     if (websocket.readyState === WebSocket.OPEN) {
       const path = 'renderingState/sentence';
@@ -177,6 +198,16 @@ export function RenderControls() {
         value: sentence,
         onChange: (v) => {
           set_sentence(v);
+        },
+      },
+      clipScale: {
+        label: "Clip Scale",
+        value: clipScale,
+        min: 0.0,
+        max: 1.0,
+        step: 0.1,
+        onChange: (v) => {
+          set_clip_scale(v);
         },
       },
       // output_options

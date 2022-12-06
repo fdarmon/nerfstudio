@@ -113,6 +113,7 @@ class RaySamples(TensorDataclass):
 
     times: Optional[TensorType[..., 1]] = None
     """Times at which rays are sampled"""
+    clip_scale: Optional[TensorType[..., 1]] = None
 
     def get_weights(self, densities: TensorType[..., "num_samples", 1]) -> TensorType[..., "num_samples", 1]:
         """Return weights based on predicted densities
@@ -159,6 +160,8 @@ class RayBundle(TensorDataclass):
     """Additional metadata or data needed for interpolation, will mimic shape of rays"""
     times: Optional[TensorType[..., 1]] = None
     """Times at which rays are sampled"""
+    clip_scale: Optional[TensorType[..., 1]] = None
+    """Scales for CLIP embeddings"""
 
     def set_camera_indices(self, camera_index: int) -> None:
         """Sets all of the the camera indices to a specific camera index.
@@ -240,6 +243,7 @@ class RayBundle(TensorDataclass):
             spacing_to_euclidean_fn=spacing_to_euclidean_fn,
             metadata=shaped_raybundle_fields.metadata,
             times=None if self.times is None else self.times[..., None],  # [..., 1, 1]
+            clip_scale = None if self.clip_scale is None else self.clip_scale[...,None]
         )
 
         return ray_samples

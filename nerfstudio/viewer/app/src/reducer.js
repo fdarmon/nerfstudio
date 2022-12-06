@@ -36,6 +36,7 @@ const initialState = {
     log_errors: '',
     renderTime: 0.0,
     sentence: '',
+    clipScale: 1.0,
 
     // export options
     clipping_enabled: true,

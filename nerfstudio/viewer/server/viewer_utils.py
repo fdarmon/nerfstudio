@@ -779,7 +779,13 @@ class ViewerState:
         camera = camera.to(graph.device)
 
         camera_ray_bundle = camera.generate_rays(camera_indices=0)
-
+        clip_scale = self.vis['renderingState/clipScale'].read()
+        if clip_scale is None:
+            clip_scale = 1.0
+        scale_vec = torch.ones((*camera_ray_bundle.shape,1),
+                        dtype=camera_ray_bundle.origins.dtype,
+                        device=camera_ray_bundle.origins.device)*clip_scale
+        camera_ray_bundle.clip_scale = scale_vec
         graph.eval()
 
         check_thread = CheckThread(state=self)

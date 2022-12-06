@@ -184,7 +184,7 @@ class TCNNNerfactoField(Field):
             res = 1024
             growth = np.exp((np.log(res) - np.log(16)) / (ls - 1))
             self.clip_net = tcnn.NetworkWithInputEncoding(
-            n_input_dims=3,
+            n_input_dims=4,
             n_output_dims=512,
             encoding_config={
                 "otype": "HashGrid",
@@ -313,7 +313,8 @@ class TCNNNerfactoField(Field):
             positions = ray_samples.frustums.get_positions().detach()
             positions = self.spatial_distortion(positions)
             positions = (positions + 2.0) / 4.0
-            x = self.clip_net(positions.view(-1, 3)).view(*ray_samples.frustums.shape, -1)
+            inp = torch.cat([positions,ray_samples.clip_scale],dim=-1)
+            x = self.clip_net(inp.view(-1,4)).view(*ray_samples.frustums.shape, -1)
             outputs[FieldHeadNames.CLIP] = x / x.norm(dim=-1,keepdim=True)
         # semantics
         if self.use_semantics:
